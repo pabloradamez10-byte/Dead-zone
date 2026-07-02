@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#0d120d" />
+<title>DeadZone Mobile</title>
+<link rel="manifest" href="manifest.json" />
+<link rel="icon" href="icons/icon-192.png" />
+<link rel="apple-touch-icon" href="icons/icon-192.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div id="game-container">
+  <canvas id="game-canvas"></canvas>
+
+  <!-- MAIN MENU -->
+  <div id="main-menu" class="overlay">
+    <div class="title-mark">DEAD<span>ZONE</span></div>
+    <div class="subtitle">sobrevivência &middot; infecção &middot; colheita perdida</div>
+    <button id="btn-new-game" class="menu-btn primary">Novo Jogo</button>
+    <button id="btn-continue" class="menu-btn">Continuar</button>
+  </div>
+
+  <!-- DEATH SCREEN -->
+  <div id="death-screen" class="overlay hidden">
+    <div class="death-text">VOCÊ MORREU</div>
+    <div class="subtitle" id="death-stats">sobreviveu 0 dias &middot; 0 kills</div>
+    <button id="btn-restart" class="menu-btn primary">Tentar de novo</button>
+    <button id="btn-menu" class="menu-btn">Menu principal</button>
+  </div>
+
+  <!-- HUD -->
+  <div id="hud" class="hidden">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+      <div class="hud-top">
+        <div class="stat-row"><span class="stat-label">VID</span><div class="stat-track"><div id="bar-health" class="stat-fill fill-health"></div></div></div>
+        <div class="stat-row"><span class="stat-label">FOL</span><div class="stat-track"><div id="bar-stamina" class="stat-fill fill-stamina"></div></div></div>
+        <div class="stat-row"><span class="stat-label">FOM</span><div class="stat-track"><div id="bar-hunger" class="stat-fill fill-hunger"></div></div></div>
+        <div class="stat-row"><span class="stat-label">SED</span><div class="stat-track"><div id="bar-thirst" class="stat-fill fill-thirst"></div></div></div>
+      </div>
+      <div class="top-right-info">
+        <span id="daynight-text">DIA 1 &middot; 06:00</span>
+        <span id="kill-text">Abates: 0</span>
+        <span id="infection-text">INFECTADO: 0s</span>
+      </div>
+    </div>
+
+    <div class="hud-bottom">
+      <div id="joystick-zone">
+        <div id="joystick-bg"></div>
+        <div id="joystick-handle"></div>
+      </div>
+
+      <div class="icon-row">
+        <button id="btn-open-inventory" class="icon-btn">MOCHILA</button>
+        <button id="btn-open-craft" class="icon-btn">CRAFT</button>
+      </div>
+
+      <div class="action-cluster">
+        <button id="btn-attack" class="action-btn attack">ATACAR</button>
+        <button id="btn-save" class="action-btn">SALVAR</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- INVENTORY PANEL -->
+  <div id="inventory-panel" class="panel hidden">
+    <h2>Mochila <span class="close-x" data-close="inventory-panel">&times;</span></h2>
+    <div id="inventory-grid" class="slot-grid"></div>
+  </div>
+
+  <!-- CRAFT PANEL -->
+  <div id="craft-panel" class="panel hidden">
+    <h2>Fabricar <span class="close-x" data-close="craft-panel">&times;</span></h2>
+    <div id="craft-list"></div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+</div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
