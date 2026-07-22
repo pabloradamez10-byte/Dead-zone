@@ -44,6 +44,8 @@ canvas#game-canvas {
   height: 100%;
   touch-action: none;
   background: #10160f;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
 }
 
 /* ---------- Overlays (menu, death) ---------- */
@@ -296,9 +298,18 @@ canvas#game-canvas {
   text-align: center;
   font-size: 0.65rem;
   cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
 }
 .slot:active { border-color: var(--rust-bright); }
 .slot .qty { color: var(--sick); }
+.slot img {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
 
 .recipe-row {
   display: flex;

@@ -12,7 +12,16 @@ const ASSETS = [
   "./js/save.js",
   "./js/ui.js",
   "./icons/icon-192.png",
-  "./icons/icon-512.png"
+  "./icons/icon-512.png",
+  "./assets/player.png",
+  "./assets/zombie_normal.png",
+  "./assets/zombie_runner.png",
+  "./assets/zombie_tank.png",
+  "./assets/item_milho.png",
+  "./assets/item_agua.png",
+  "./assets/item_atadura.png",
+  "./assets/item_medkit.png",
+  "./assets/item_pano.png"
 ];
 
 self.addEventListener("install", (event) => {
