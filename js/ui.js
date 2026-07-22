@@ -109,7 +109,19 @@ export class InventoryPanel {
       const slot = document.createElement("div");
       slot.className = "slot";
       slot.style.borderColor = def.color;
-      slot.innerHTML = `${def.name}<br><span class="qty">x${qty}</span>`;
+      
+      let imgHTML = "";
+      if (itemId !== "madeira" && itemId !== "sucata") {
+        imgHTML = `<img src="assets/item_${itemId}.png" style="width: 32px; height: 32px; margin-bottom: 4px; display: block;" />`;
+      } else {
+        if (itemId === "madeira") {
+          imgHTML = `<div style="width: 28px; height: 14px; background: #6b4a2b; border: 2px solid #4a331d; border-radius: 2px; margin-bottom: 6px; box-shadow: inset 0 2px 0 #8c6239;"></div>`;
+        } else if (itemId === "sucata") {
+          imgHTML = `<div style="width: 22px; height: 22px; background: #777; border: 2px solid #444; border-radius: 4px; margin-bottom: 6px; box-shadow: inset 0 3px 0 #aaa;"></div>`;
+        }
+      }
+
+      slot.innerHTML = `${imgHTML}<span>${def.name}</span><span class="qty">x${qty}</span>`;
       slot.addEventListener("click", () => this.onUse(itemId));
       this.grid.appendChild(slot);
     });
@@ -135,7 +147,22 @@ export class CraftPanel {
         .join(", ");
       const row = document.createElement("div");
       row.className = "recipe-row";
-      row.innerHTML = `<span>${recipe.name}<br><small style="opacity:0.6">${needsStr}</small></span>`;
+      
+      let imgHTML = "";
+      if (recipe.result !== "madeira" && recipe.result !== "sucata") {
+        imgHTML = `<img src="assets/item_${recipe.result}.png" style="width: 28px; height: 28px; image-rendering: pixelated; margin-right: 10px;" />`;
+      } else {
+        if (recipe.result === "madeira") {
+          imgHTML = `<div style="width: 24px; height: 12px; background: #6b4a2b; border: 2px solid #4a331d; border-radius: 2px; display: inline-block; margin-right: 10px; box-shadow: inset 0 2px 0 #8c6239; vertical-align: middle;"></div>`;
+        } else if (recipe.result === "sucata") {
+          imgHTML = `<div style="width: 18px; height: 18px; background: #777; border: 2px solid #444; border-radius: 4px; display: inline-block; margin-right: 10px; box-shadow: inset 0 3px 0 #aaa; vertical-align: middle;"></div>`;
+        }
+      }
+
+      row.innerHTML = `<div style="display: flex; align-items: center;">
+        ${imgHTML}
+        <span><strong>${recipe.name}</strong><br><small style="opacity:0.6">Ingredientes: ${needsStr}</small></span>
+      </div>`;
       const btn = document.createElement("button");
       btn.textContent = "Fabricar";
       btn.disabled = !ok;

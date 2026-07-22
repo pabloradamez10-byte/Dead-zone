@@ -19,6 +19,77 @@ function resize() {
 window.addEventListener("resize", resize);
 resize();
 
+// ---------- Sprite loading and background key-out ----------
+const sprites = {
+  player: null,
+  zombie_normal: null,
+  zombie_runner: null,
+  zombie_tank: null,
+  item_milho: null,
+  item_agua: null,
+  item_atadura: null,
+  item_medkit: null,
+  item_pano: null,
+};
+
+function loadAndCleanImage(src, keyColor = { r: 15, g: 15, b: 15 }) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      const tempCanvas = document.createElement("canvas");
+      tempCanvas.width = img.width;
+      tempCanvas.height = img.height;
+      const tempCtx = tempCanvas.getContext("2d");
+      tempCtx.drawImage(img, 0, 0);
+      try {
+        const imgData = tempCtx.getImageData(0, 0, img.width, img.height);
+        const data = imgData.data;
+        for (let i = 0; i < data.length; i += 4) {
+          const r = data[i];
+          const g = data[i + 1];
+          const b = data[i + 2];
+          // Key out dark pixels (near black background)
+          if (r <= keyColor.r && g <= keyColor.g && b <= keyColor.b) {
+            data[i + 3] = 0; // set alpha to 0 (transparent)
+          }
+        }
+        tempCtx.putImageData(imgData, 0, 0);
+        const cleanImg = new Image();
+        cleanImg.onload = () => resolve(cleanImg);
+        cleanImg.src = tempCanvas.toDataURL();
+      } catch (e) {
+        console.warn("Erro ao processar imagem, usando original:", src, e);
+        resolve(img);
+      }
+    };
+    img.onerror = () => {
+      console.warn("Erro ao carregar imagem:", src);
+      resolve(null);
+    };
+    img.src = src;
+  });
+}
+
+async function loadAssets() {
+  const assetsToLoad = {
+    player: "assets/player.png",
+    zombie_normal: "assets/zombie_normal.png",
+    zombie_runner: "assets/zombie_runner.png",
+    zombie_tank: "assets/zombie_tank.png",
+    item_milho: "assets/item_milho.png",
+    item_agua: "assets/item_agua.png",
+    item_atadura: "assets/item_atadura.png",
+    item_medkit: "assets/item_medkit.png",
+    item_pano: "assets/item_pano.png"
+  };
+
+  for (const [key, path] of Object.entries(assetsToLoad)) {
+    sprites[key] = await loadAndCleanImage(path);
+  }
+}
+loadAssets();
+
 // ---------- Elements ----------
 const mainMenu = document.getElementById("main-menu");
 const deathScreen = document.getElementById("death-screen");
@@ -261,18 +332,53 @@ function draw() {
   // Itens no chão
   for (const item of groundItems) {
     const p = toScreen(item.x, item.y);
-    const def = ITEM_DB[item.itemId];
-    ctx.fillStyle = def.color;
-    ctx.fillRect(p.x - 6, p.y - 6, 12, 12);
+    const spriteKey = `item_${item.itemId}`;
+    if (sprites[spriteKey]) {
+      ctx.drawImage(sprites[spriteKey], p.x - 10, p.y - 10, 20, 20);
+    } else {
+      // Se for madeira ou sucata que nao geramos, desenhamos de forma pixelada procedural!
+      if (item.itemId === "madeira") {
+        // Log de madeira pixel art procedural
+        ctx.fillStyle = "#6b4a2b";
+        ctx.fillRect(p.x - 8, p.y - 4, 16, 8);
+        ctx.fillStyle = "#8c6239";
+        ctx.fillRect(p.x - 6, p.y - 2, 12, 4);
+        ctx.fillStyle = "#4a331d";
+        ctx.fillRect(p.x + 6, p.y - 4, 2, 8);
+      } else if (item.itemId === "sucata") {
+        // Engrenagem / chapa de metal pixel art procedural
+        ctx.fillStyle = "#777777";
+        ctx.fillRect(p.x - 6, p.y - 6, 12, 12);
+        ctx.fillStyle = "#aaaaaa";
+        ctx.fillRect(p.x - 4, p.y - 4, 8, 8);
+        ctx.fillStyle = "#444444";
+        ctx.fillRect(p.x - 2, p.y - 2, 4, 4);
+      } else {
+        const def = ITEM_DB[item.itemId];
+        ctx.fillStyle = def.color;
+        ctx.fillRect(p.x - 6, p.y - 6, 12, 12);
+      }
+    }
   }
 
   // Zumbis
   for (const z of zombies) {
     const p = toScreen(z.x, z.y);
-    ctx.fillStyle = z.color;
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, z.radius, 0, Math.PI * 2);
-    ctx.fill();
+    const spriteKey = `zombie_${z.type}`;
+    if (sprites[spriteKey]) {
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      if (z.facing === -1) {
+        ctx.scale(-1, 1);
+      }
+      ctx.drawImage(sprites[spriteKey], -z.radius - 6, -z.radius - 6, z.radius * 2 + 12, z.radius * 2 + 12);
+      ctx.restore();
+    } else {
+      ctx.fillStyle = z.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, z.radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
     // barra de vida do zumbi
     const pct = z.health / z.maxHealth;
     ctx.fillStyle = "rgba(0,0,0,0.5)";
@@ -283,13 +389,23 @@ function draw() {
 
   // Player
   const pp = toScreen(player.x, player.y);
-  ctx.fillStyle = "#3e6fb0";
-  ctx.beginPath();
-  ctx.arc(pp.x, pp.y, player.radius, 0, Math.PI * 2);
-  ctx.fill();
-  // indicador de direção
-  ctx.fillStyle = "#e8e2d0";
-  ctx.fillRect(pp.x + player.facing * player.radius - 3, pp.y - 3, 6, 6);
+  if (sprites.player) {
+    ctx.save();
+    ctx.translate(pp.x, pp.y);
+    if (player.facing === -1) {
+      ctx.scale(-1, 1);
+    }
+    ctx.drawImage(sprites.player, -player.radius - 6, -player.radius - 6, player.radius * 2 + 12, player.radius * 2 + 12);
+    ctx.restore();
+  } else {
+    ctx.fillStyle = "#3e6fb0";
+    ctx.beginPath();
+    ctx.arc(pp.x, pp.y, player.radius, 0, Math.PI * 2);
+    ctx.fill();
+    // indicador de direção
+    ctx.fillStyle = "#e8e2d0";
+    ctx.fillRect(pp.x + player.facing * player.radius - 3, pp.y - 3, 6, 6);
+  }
 
   if (player.bleeding) {
     ctx.strokeStyle = "#7a1f1f";
