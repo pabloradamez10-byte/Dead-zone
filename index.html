@@ -174,11 +174,11 @@
       <div class="panel-section info-box">
         <h3>Por que é Grátis e Autônomo?</h3>
         <ul>
-          <li>🧠 <b>Sem IA externa:</b> gramática procedural + noise 3D. Não usa OpenAI / Meshy.</li>
-          <li>💻 <b>100% local:</b> roda com WebGL. Funciona offline após carregar.</li>
-          <li>♾️ <b>Ilimitado:</b> sem fila, sem crédito, sem login.</li>
-          <li>🎮 <b>Game-ready:</b> pivô centralizado, escala normalizada, UVs automáticas, materiais PBR simples.</li>
-          <li>🔧 <b>Fork de DeadZone:</b> este projeto nasceu do motor procedural do PWA DeadZone Mobile.</li>
+          <li>🧠 <b>Procedural local:</b> gramática procedural + noise 3D sem cobrança por geração.</li>
+          <li>📷 <b>Imagem → 3D:</b> modo local e conector opcional para processamento externo.</li>
+          <li>💻 <b>100% local:</b> o modo básico roda com WebGL e funciona offline após carregar.</li>
+          <li>♾️ <b>Ilimitado:</b> sem fila, sem crédito e sem login no modo local.</li>
+          <li>🎮 <b>Game-ready:</b> pivô centralizado, escala normalizada e exportação GLB.</li>
         </ul>
       </div>
     </aside>
@@ -192,30 +192,31 @@
       <div class="modal-grid">
         <div>
           <h3>1. Você descreve</h3>
-          <p>Escreva em português natural. Ex: <code>"machado viking enferrujado cabo de osso"</code>. O parser extrai: <b>categoria</b> (machado=arma), <b>material</b> (enferrujado, osso), <b>estilo</b> (viking), <b>cor</b> (inferida).</p>
+          <p>Escreva em português natural. Ex: <code>"machado viking enferrujado cabo de osso"</code>. O parser extrai categoria, material, estilo e cor.</p>
         </div>
         <div>
           <h3>2. O gerador constrói</h3>
-          <p>Cada categoria tem um <b>procedural builder</b> com 5-12 parâmetros. Um RNG com seed garante que a mesma frase + seed gera sempre o mesmo modelo (determinismo útil para versão de jogo).</p>
+          <p>Cada categoria tem um procedural builder com parâmetros e seed determinística.</p>
         </div>
         <div>
-          <h3>3. Estilização automática</h3>
-          <p>Dependendo do estilo escolhido, aplicamos: flat shading + vertex colors (low poly), magnetização para voxels (grid 16³), ou smooth. Tudo usa BufferGeometry crua — sem dependências.</p>
+          <h3>3. Imagem para 3D</h3>
+          <p>Envie PNG, JPG ou WEBP para criar uma escultura 3D local. Também é possível conectar um endpoint externo que devolva GLB.</p>
         </div>
         <div>
           <h3>4. Otimização game-ready</h3>
-          <p>Os meshes são mesclados quando possível, pivô em (0,0,0), base em Y=0, escala ~ 1 metro. Pronto para arrastar pro Unity/Godot/Blender.</p>
+          <p>Os modelos podem ser centralizados, animados e exportados para Unity, Godot, Unreal ou Blender.</p>
         </div>
       </div>
       <h3>Palavras-chave suportadas</h3>
       <pre id="keywords-list"></pre>
-      <p class="hint">Código aberto. Quer adicionar um novo gerador? Edite <code>js/forge/generators.js</code> e crie uma função <code>createMeuAsset(seed, opts)</code>.</p>
+      <p class="hint">Código aberto. Para adicionar um gerador, edite <code>js/forge/generators.js</code>.</p>
     </div>
   </div>
 
 </div>
 
 <script type="module" src="js/forge/animation-bootstrap.js"></script>
+<script type="module" src="js/forge/image-to-3d.js"></script>
 <script type="module" src="js/forge/main.js"></script>
 </body>
 </html>
