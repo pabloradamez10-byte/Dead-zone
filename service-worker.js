@@ -1,10 +1,12 @@
-const CACHE_NAME = "forge3d-cache-v3";
+const CACHE_NAME = "forge3d-cache-v4";
 const ASSETS = [
   "./",
   "./index.html",
   "./manifest.json",
   "./css/style.css",
   "./js/forge/animation-bootstrap.js",
+  "./js/forge/animationSystem.js",
+  "./js/forge/rigging.js",
   "./js/forge/main.js",
   "./js/forge/generators.js",
   "./js/forge/promptParser.js",
@@ -34,7 +36,6 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   const url = event.request.url;
-  // don't cache cdn threejs, but cache everything else
   if(url.includes("cdn.jsdelivr.net")){
     return;
   }
