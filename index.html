@@ -1,86 +1,220 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
-<meta name="theme-color" content="#0d120d" />
-<title>DeadZone Mobile</title>
-<link rel="manifest" href="manifest.json" />
-<link rel="icon" href="icons/icon-192.png" />
-<link rel="apple-touch-icon" href="icons/icon-192.png" />
-<meta name="apple-mobile-web-app-capable" content="yes" />
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-<link rel="stylesheet" href="css/style.css" />
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"/>
+<meta name="theme-color" content="#0b0f0c"/>
+<title>FORGE 3D — Gerador Autônomo de Assets para Jogos</title>
+<link rel="manifest" href="manifest.json"/>
+<link rel="icon" href="icons/icon-192.png"/>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;700&family=Geist+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css"/>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
 </head>
 <body>
-<div id="game-container">
-  <canvas id="game-canvas"></canvas>
 
-  <!-- MAIN MENU -->
-  <div id="main-menu" class="overlay">
-    <div class="title-mark">DEAD<span>ZONE</span></div>
-    <div class="subtitle">sobrevivência &middot; infecção &middot; colheita perdida</div>
-    <button id="btn-new-game" class="menu-btn primary">Novo Jogo</button>
-    <button id="btn-continue" class="menu-btn">Continuar</button>
-  </div>
-
-  <!-- DEATH SCREEN -->
-  <div id="death-screen" class="overlay hidden">
-    <div class="death-text">VOCÊ MORREU</div>
-    <div class="subtitle" id="death-stats">sobreviveu 0 dias &middot; 0 kills</div>
-    <button id="btn-restart" class="menu-btn primary">Tentar de novo</button>
-    <button id="btn-menu" class="menu-btn">Menu principal</button>
-  </div>
-
-  <!-- HUD -->
-  <div id="hud" class="hidden">
-    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-      <div class="hud-top">
-        <div class="stat-row"><span class="stat-label">VID</span><div class="stat-track"><div id="bar-health" class="stat-fill fill-health"></div></div></div>
-        <div class="stat-row"><span class="stat-label">FOL</span><div class="stat-track"><div id="bar-stamina" class="stat-fill fill-stamina"></div></div></div>
-        <div class="stat-row"><span class="stat-label">FOM</span><div class="stat-track"><div id="bar-hunger" class="stat-fill fill-hunger"></div></div></div>
-        <div class="stat-row"><span class="stat-label">SED</span><div class="stat-track"><div id="bar-thirst" class="stat-fill fill-thirst"></div></div></div>
-      </div>
-      <div class="top-right-info">
-        <span id="daynight-text">DIA 1 &middot; 06:00</span>
-        <span id="kill-text">Abates: 0</span>
-        <span id="infection-text">INFECTADO: 0s</span>
+<div id="app">
+  <!-- HEADER -->
+  <header id="topbar">
+    <div class="brand">
+      <div class="brand-mark">F3D</div>
+      <div class="brand-text">
+        <strong>FORGE 3D</strong>
+        <span>GERADOR AUTÔNOMO • 100% LOCAL • GRÁTIS</span>
       </div>
     </div>
+    <div class="top-actions">
+      <div class="badge-live"><span class="dot"></span> OFFLINE • SEM API • ILIMITADO</div>
+      <button id="btn-help" class="ghost-btn">COMO FUNCIONA</button>
+    </div>
+  </header>
 
-    <div class="hud-bottom">
-      <div id="joystick-zone">
-        <div id="joystick-bg"></div>
-        <div id="joystick-handle"></div>
+  <div id="workspace">
+    <!-- LEFT PANEL -->
+    <aside id="left-panel">
+      <div class="panel-section">
+        <label class="section-label">PROMPT — DESCREVA O ASSET</label>
+        <div class="prompt-box">
+          <textarea id="prompt-input" placeholder="ex: espada futurista de plasma, árvore baixa pinheiro neve, baú de tesouro enferrujado, robô zumbi deadzone low poly..."></textarea>
+          <div class="prompt-suggestions">
+            <button data-prompt="espada longa runica low poly">⚔️ espada runica</button>
+            <button data-prompt="árvore pinheiro estilizado low poly">🌲 pinheiro</button>
+            <button data-prompt="baú de tesouro pirata">📦 baú tesouro</button>
+            <button data-prompt="pistola laser sci-fi">🔫 blaster</button>
+            <button data-prompt="pedra musgo grande irregular">🪨 pedra musgo</button>
+            <button data-prompt="casa bruxa madeira telhado torto">🏚️ casa bruxa</button>
+            <button data-prompt="zumbi tank deadzone mutante">🧟 zumbi tank</button>
+            <button data-prompt="poção cura brilhante frasco vidro">🧪 poção</button>
+          </div>
+        </div>
       </div>
 
-      <div class="icon-row">
-        <button id="btn-open-inventory" class="icon-btn">MOCHILA</button>
-        <button id="btn-open-craft" class="icon-btn">CRAFT</button>
+      <div class="panel-grid">
+        <div class="field">
+          <label>CATEGORIA</label>
+          <select id="select-category">
+            <option value="auto">🤖 Auto (detectar pelo prompt)</option>
+            <option value="weapon">⚔️ Arma</option>
+            <option value="prop">📦 Prop / Item</option>
+            <option value="nature">🌿 Natureza</option>
+            <option value="structure">🏰 Estrutura</option>
+            <option value="character">🧍 Personagem</option>
+            <option value="vehicle">🚀 Veículo</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>ESTILO VISUAL</label>
+          <select id="select-style">
+            <option value="lowpoly">Low Poly (jogos indie)</option>
+            <option value="voxel">Voxel Cubico</option>
+            <option value="smooth">Smooth Stylized</option>
+            <option value="flat">Flat Shaded Toon</option>
+          </select>
+        </div>
       </div>
 
-      <div class="action-cluster">
-        <button id="btn-attack" class="action-btn attack">ATACAR</button>
-        <button id="btn-save" class="action-btn">SALVAR</button>
+      <div class="panel-grid">
+        <div class="field">
+          <label>COMPLEXIDADE <span id="val-complexity">5</span></label>
+          <input id="slider-complexity" type="range" min="1" max="10" value="5">
+        </div>
+        <div class="field">
+          <label>VARIAÇÃO SEED</label>
+          <div class="seed-row">
+            <input id="input-seed" type="number" value="1337">
+            <button id="btn-random-seed" title="Aleatorizar">🎲</button>
+          </div>
+        </div>
       </div>
+
+      <div class="field">
+        <label>PALETA DE CORES</label>
+        <div id="palette" class="palette">
+          <button class="color-dot active" data-palette="auto" style="background: conic-gradient(#ff6b00,#aaff00,#00e5ff,#ff00aa,#ff6b00);">A</button>
+          <button class="color-dot" data-palette="deadzone" style="background:#b5451b;"></button>
+          <button class="color-dot" data-palette="forest" style="background:#4a7c3f;"></button>
+          <button class="color-dot" data-palette="ice" style="background:#7fd8ff;"></button>
+          <button class="color-dot" data-palette="lava" style="background:#ff2a00;"></button>
+          <button class="color-dot" data-palette="toxic" style="background:#aaff00;"></button>
+          <button class="color-dot" data-palette="gold" style="background:#ffcc33;"></button>
+          <button class="color-dot" data-palette="cyber" style="background:#00fff0;"></button>
+        </div>
+      </div>
+
+      <button id="btn-generate" class="cta">⚡ GERAR ASSET 3D</button>
+      <button id="btn-generate-pack" class="secondary-btn">🎁 GERAR PACK COM 9 VARIAÇÕES</button>
+
+      <div class="panel-section small">
+        <div class="stats-grid">
+          <div class="stat"><span id="stat-verts">0</span><label>VERTS</label></div>
+          <div class="stat"><span id="stat-tris">0</span><label>TRIS</label></div>
+          <div class="stat"><span id="stat-meshes">0</span><label>MESHES</label></div>
+          <div class="stat"><span id="stat-size">0kb</span><label>GLB</label></div>
+        </div>
+      </div>
+
+      <div class="panel-section">
+        <label class="section-label">EXPORTAÇÃO — SEM MARCA D'ÁGUA</label>
+        <div class="export-grid">
+          <button id="btn-export-glb" class="export-btn primary">⬇️ .GLB</button>
+          <button id="btn-export-obj" class="export-btn">⬇️ .OBJ</button>
+          <button id="btn-export-stl" class="export-btn">⬇️ .STL</button>
+          <button id="btn-screenshot" class="export-btn">📸 PNG</button>
+        </div>
+        <p class="hint">Todos os arquivos são gerados 100% no seu navegador. Compatível com Unity, Unreal, Godot, Blender, etc.</p>
+      </div>
+    </aside>
+
+    <!-- CENTER VIEWPORT -->
+    <main id="viewport">
+      <canvas id="canvas-3d"></canvas>
+      <div id="viewport-ui">
+        <div class="viewport-top">
+          <div id="current-label" class="current-label">Aguardando geração...</div>
+          <div class="view-controls">
+            <button id="btn-wireframe" class="mini-btn">Wireframe</button>
+            <button id="btn-auto-rotate" class="mini-btn active">Auto Girar</button>
+            <button id="btn-reset-cam" class="mini-btn">Reset Cam</button>
+          </div>
+        </div>
+        <div class="viewport-bottom">
+          <div class="engine-badge">THREE.JS • PROCEDURAL • SEED BASED</div>
+          <div class="drop-hint">💡 Dica: Digite <b>qualquer coisa</b> em PT ou EN. O gerador entende contexto: material, forma, bioma, tema.</div>
+        </div>
+      </div>
+      <div id="loading-overlay" class="hidden">
+        <div class="spinner"></div>
+        <span>Forjando asset...</span>
+      </div>
+    </main>
+
+    <!-- RIGHT PANEL -->
+    <aside id="right-panel">
+      <div class="panel-header">
+        <h2>BIBLIOTECA</h2>
+        <span id="lib-count">0 assets</span>
+      </div>
+      <div class="lib-actions">
+        <input id="lib-search" placeholder="filtrar biblioteca..."/>
+        <button id="btn-clear-lib" class="ghost-btn small">Limpar</button>
+      </div>
+      <div id="library-grid" class="library-grid">
+        <!-- cards injetados -->
+      </div>
+
+      <div class="panel-section info-box">
+        <h3>Por que é Grátis e Autônomo?</h3>
+        <ul>
+          <li>🧠 <b>Sem IA externa:</b> gramática procedural + noise 3D. Não usa OpenAI / Meshy.</li>
+          <li>💻 <b>100% local:</b> roda com WebGL. Funciona offline após carregar.</li>
+          <li>♾️ <b>Ilimitado:</b> sem fila, sem crédito, sem login.</li>
+          <li>🎮 <b>Game-ready:</b> pivô centralizado, escala normalizada, UVs automáticas, materiais PBR simples.</li>
+          <li>🔧 <b>Fork de DeadZone:</b> este projeto nasceu do motor procedural do PWA DeadZone Mobile.</li>
+        </ul>
+      </div>
+    </aside>
+  </div>
+
+  <!-- MODAL -->
+  <div id="modal-help" class="modal hidden">
+    <div class="modal-content">
+      <button id="btn-close-help" class="close-modal">×</button>
+      <h1>FORGE 3D — Como funciona o gerador autônomo?</h1>
+      <div class="modal-grid">
+        <div>
+          <h3>1. Você descreve</h3>
+          <p>Escreva em português natural. Ex: <code>"machado viking enferrujado cabo de osso"</code>. O parser extrai: <b>categoria</b> (machado=arma), <b>material</b> (enferrujado, osso), <b>estilo</b> (viking), <b>cor</b> (inferida).</p>
+        </div>
+        <div>
+          <h3>2. O gerador constrói</h3>
+          <p>Cada categoria tem um <b>procedural builder</b> com 5-12 parâmetros. Um RNG com seed garante que a mesma frase + seed gera sempre o mesmo modelo (determinismo útil para versão de jogo).</p>
+        </div>
+        <div>
+          <h3>3. Estilização automática</h3>
+          <p>Dependendo do estilo escolhido, aplicamos: flat shading + vertex colors (low poly), magnetização para voxels (grid 16³), ou smooth. Tudo usa BufferGeometry crua — sem dependências.</p>
+        </div>
+        <div>
+          <h3>4. Otimização game-ready</h3>
+          <p>Os meshes são mesclados quando possível, pivô em (0,0,0), base em Y=0, escala ~ 1 metro. Pronto para arrastar pro Unity/Godot/Blender.</p>
+        </div>
+      </div>
+      <h3>Palavras-chave suportadas</h3>
+      <pre id="keywords-list"></pre>
+      <p class="hint">Código aberto. Quer adicionar um novo gerador? Edite <code>js/forge/generators.js</code> e crie uma função <code>createMeuAsset(seed, opts)</code>.</p>
     </div>
   </div>
 
-  <!-- INVENTORY PANEL -->
-  <div id="inventory-panel" class="panel hidden">
-    <h2>Mochila <span class="close-x" data-close="inventory-panel">&times;</span></h2>
-    <div id="inventory-grid" class="slot-grid"></div>
-  </div>
-
-  <!-- CRAFT PANEL -->
-  <div id="craft-panel" class="panel hidden">
-    <h2>Fabricar <span class="close-x" data-close="craft-panel">&times;</span></h2>
-    <div id="craft-list"></div>
-  </div>
-
-  <div id="toast" class="toast"></div>
 </div>
 
-<script type="module" src="js/main.js"></script>
+<script type="module" src="js/forge/main.js"></script>
 </body>
 </html>

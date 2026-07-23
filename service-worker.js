@@ -1,27 +1,16 @@
-const CACHE_NAME = "deadzone-cache-v1";
+const CACHE_NAME = "forge3d-cache-v2";
 const ASSETS = [
   "./",
   "./index.html",
   "./manifest.json",
   "./css/style.css",
-  "./js/main.js",
-  "./js/player.js",
-  "./js/zombie.js",
-  "./js/items.js",
-  "./js/world.js",
-  "./js/save.js",
-  "./js/ui.js",
+  "./js/forge/main.js",
+  "./js/forge/generators.js",
+  "./js/forge/promptParser.js",
+  "./js/forge/utils.js",
+  "./js/forge/exporter.js",
   "./icons/icon-192.png",
-  "./icons/icon-512.png",
-  "./assets/player.png",
-  "./assets/zombie_normal.png",
-  "./assets/zombie_runner.png",
-  "./assets/zombie_tank.png",
-  "./assets/item_milho.png",
-  "./assets/item_agua.png",
-  "./assets/item_atadura.png",
-  "./assets/item_medkit.png",
-  "./assets/item_pano.png"
+  "./icons/icon-512.png"
 ];
 
 self.addEventListener("install", (event) => {
@@ -43,6 +32,11 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
+  const url = event.request.url;
+  // don't cache cdn threejs, but cache everything else
+  if(url.includes("cdn.jsdelivr.net")){
+    return;
+  }
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) return cached;
