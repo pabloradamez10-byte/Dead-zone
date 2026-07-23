@@ -1,5 +1,7 @@
 import * as THREE from "three";
 
+window.FORGE_EXPORT_ANIMATED = true;
+
 const state = {
   activeGroup: null,
   enabled: true,
@@ -17,6 +19,15 @@ function snapshot(group){
   };
 }
 
+function persistBase(group, base){
+  if(!group || !base) return;
+  group.userData.forgeBaseTransform = {
+    position: base.position.toArray(),
+    rotation: [base.rotation.x,base.rotation.y,base.rotation.z,base.rotation.order],
+    scale: base.scale.toArray()
+  };
+}
+
 function restore(){
   const group = state.activeGroup;
   const base = state.base;
@@ -31,14 +42,16 @@ function setActiveGroup(group){
   restore();
   state.activeGroup = group;
   state.base = snapshot(group);
+  persistBase(group,state.base);
   state.startedAt = performance.now();
   requestAnimationFrame(()=>{
     state.label = (document.getElementById("current-label")?.textContent || "").toLowerCase();
+    group.userData.forgeHint = state.label;
+    group.userData.forgeAnimationMode = resolveMode();
+    if(!group.name) group.name = "FORGE_ASSET";
   });
 }
 
-// O gerador adiciona cada asset como THREE.Group. Interceptamos essa inclusão
-// sem alterar o motor procedural existente.
 const originalSceneAdd = THREE.Scene.prototype.add;
 THREE.Scene.prototype.add = function(...objects){
   const result = originalSceneAdd.apply(this, objects);
@@ -53,11 +66,11 @@ THREE.Scene.prototype.add = function(...objects){
 function resolveMode(){
   if(state.mode !== "auto") return state.mode;
   const label = state.label;
-  if(/human|zombie|character|personagem/.test(label)) return "idle";
-  if(/tree|árvore|pine|oak|mushroom|nature/.test(label)) return "sway";
+  if(/human|zombie|character|personagem|humano|zumbi/.test(label)) return "idle";
+  if(/tree|árvore|arvore|pine|oak|mushroom|nature/.test(label)) return "sway";
   if(/sword|axe|gun|weapon|espada|machado|arma/.test(label)) return "attack";
-  if(/vehicle|car|veículo/.test(label)) return "hover";
-  if(/gem|potion|poção|crystal/.test(label)) return "pulse";
+  if(/vehicle|car|veículo|veiculo|drone/.test(label)) return "hover";
+  if(/gem|potion|poção|pocao|crystal|magic/.test(label)) return "pulse";
   return "float";
 }
 
@@ -73,6 +86,7 @@ function animateGroup(now){
 
   const t = (now - state.startedAt) / 1000;
   const mode = resolveMode();
+  group.userData.forgeAnimationMode = mode;
 
   group.position.copy(base.position);
   group.rotation.copy(base.rotation);
@@ -130,10 +144,17 @@ function installControls(){
   button.textContent = "Movimento ON";
   button.title = "Ativar ou pausar o movimento do asset";
 
+  const exportButton = document.createElement("button");
+  exportButton.id = "btn-export-motion";
+  exportButton.className = "mini-btn active";
+  exportButton.textContent = "GLB Animado ON";
+  exportButton.title = "Incluir clips de animação e rig procedural no arquivo GLB";
+
   select.addEventListener("change", ()=>{
     restore();
     state.mode = select.value;
     state.startedAt = performance.now();
+    if(state.activeGroup) state.activeGroup.userData.forgeAnimationMode = resolveMode();
   });
 
   button.addEventListener("click", ()=>{
@@ -144,8 +165,20 @@ function installControls(){
     else state.startedAt = performance.now();
   });
 
+  exportButton.addEventListener("click", ()=>{
+    window.FORGE_EXPORT_ANIMATED = !window.FORGE_EXPORT_ANIMATED;
+    exportButton.classList.toggle("active", window.FORGE_EXPORT_ANIMATED);
+    exportButton.textContent = window.FORGE_EXPORT_ANIMATED ? "GLB Animado ON" : "GLB Animado OFF";
+    const glbButton = document.getElementById("btn-export-glb");
+    if(glbButton) glbButton.textContent = window.FORGE_EXPORT_ANIMATED ? "⬇️ .GLB ANIMADO" : "⬇️ .GLB";
+  });
+
+  host.prepend(exportButton);
   host.prepend(button);
   host.prepend(select);
+
+  const glbButton = document.getElementById("btn-export-glb");
+  if(glbButton) glbButton.textContent = "⬇️ .GLB ANIMADO";
 }
 
 function loop(now){
