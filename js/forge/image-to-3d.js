@@ -2,103 +2,51 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { exportGLB } from "./exporter.js";
 
-const state={scene:null,group:null,image:null,file:null,fileName:"image_asset"};
+const COLAB_URL="https://colab.research.google.com/github/pabloradamez10-byte/Dead-zone/blob/main/notebooks/atlas-forge-engine-0.4-api.ipynb";
+const state={scene:null,group:null,image:null,file:null,fileName:"image_asset",engineBase:(localStorage.getItem("atlas_forge_engine_base")||"").replace(/\/$/,"")};
 const previousAdd=THREE.Scene.prototype.add;
-THREE.Scene.prototype.add=function(...objects){ state.scene=this; return previousAdd.apply(this,objects); };
+THREE.Scene.prototype.add=function(...objects){state.scene=this;return previousAdd.apply(this,objects);};
 
-function removeCurrent(){ if(state.group?.parent) state.group.parent.remove(state.group); state.group=null; }
-function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
-function loadImage(file){ return new Promise((resolve,reject)=>{ const img=new Image(); img.onload=()=>resolve(img); img.onerror=reject; img.src=URL.createObjectURL(file); }); }
-function fileToDataUrl(file){ return new Promise((resolve,reject)=>{ const reader=new FileReader(); reader.onload=()=>resolve(reader.result); reader.onerror=reject; reader.readAsDataURL(file); }); }
+function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+function removeCurrent(){if(state.group?.parent)state.group.parent.remove(state.group);state.group=null;}
+function loadImage(file){return new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=reject;img.src=URL.createObjectURL(file);});}
+function imageData(img,resolution){const canvas=document.createElement("canvas"),aspect=img.width/img.height;canvas.width=aspect>=1?resolution:Math.max(12,Math.round(resolution*aspect));canvas.height=aspect>=1?Math.max(12,Math.round(resolution/aspect)):resolution;const ctx=canvas.getContext("2d",{willReadFrequently:true});ctx.drawImage(img,0,0,canvas.width,canvas.height);return{canvas,data:ctx.getImageData(0,0,canvas.width,canvas.height)};}
+function buildRelief(img,{resolution=52,depth=.18,threshold=20}={}){const{canvas,data}=imageData(img,resolution),cols=canvas.width,rows=canvas.height,cell=1/Math.max(cols,rows);const geometry=new THREE.BoxGeometry(cell*.98,cell*.98,1),material=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.72,metalness:.05});let count=0;for(let i=0;i<data.data.length;i+=4)if(data.data[i+3]>=threshold)count++;const mesh=new THREE.InstancedMesh(geometry,material,count),dummy=new THREE.Object3D(),color=new THREE.Color();let n=0;for(let y=0;y<rows;y++)for(let x=0;x<cols;x++){const i=(y*cols+x)*4,r=data.data[i]/255,g=data.data[i+1]/255,b=data.data[i+2]/255,a=data.data[i+3];if(a<threshold)continue;const lum=(r+g+b)/3,d=Math.max(.035,depth*(.35+lum*.9));dummy.position.set((x-(cols-1)/2)*cell,((rows-1)/2-y)*cell,d/2);dummy.scale.set(1,1,d);dummy.updateMatrix();mesh.setMatrixAt(n,dummy.matrix);color.setRGB(r,g,b,THREE.SRGBColorSpace);mesh.setColorAt(n,color);n++;}mesh.instanceMatrix.needsUpdate=true;if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;const group=new THREE.Group();group.name="FORGE_IMAGE_3D";group.userData.forgeHint="image relief";group.add(mesh);group.scale.setScalar(1.35/Math.max(cols*cell,rows*cell));group.rotation.x=-.12;return group;}
+function loadExternalModel(url){const loader=new GLTFLoader();return new Promise((resolve,reject)=>loader.load(url,gltf=>resolve(gltf.scene),undefined,reject));}
+function showGroup(group){removeCurrent();state.group=group;if(!state.scene)throw new Error("Cena 3D ainda não foi inicializada.");state.scene.add(group);}
+function setStatus(text,kind=""){const el=document.getElementById("img3d-status");if(el){el.textContent=text;el.dataset.kind=kind;}}
+function setProgress(value){const wrap=document.getElementById("img3d-progress"),bar=document.getElementById("img3d-progress-bar");if(!wrap||!bar)return;wrap.classList.toggle("hidden",value==null);if(value!=null)bar.style.width=`${Math.max(3,Math.min(100,value))}%`;}
+function normalizeBase(value){return String(value||"").trim().replace(/\/$/,"").replace(/\/(image-to-3d|image-to-3d-status)$/,"");}
+function absoluteUrl(base,url){return new URL(url,base+"/").href;}
 
-function imageData(img,resolution){
-  const canvas=document.createElement("canvas"); const aspect=img.width/img.height;
-  canvas.width=aspect>=1?resolution:Math.max(12,Math.round(resolution*aspect));
-  canvas.height=aspect>=1?Math.max(12,Math.round(resolution/aspect)):resolution;
-  const ctx=canvas.getContext("2d",{willReadFrequently:true}); ctx.clearRect(0,0,canvas.width,canvas.height); ctx.drawImage(img,0,0,canvas.width,canvas.height);
-  return {canvas,data:ctx.getImageData(0,0,canvas.width,canvas.height)};
-}
+async function connectEngine(){const input=document.getElementById("atlas-engine-url"),button=document.getElementById("atlas-connect");const base=normalizeBase(input.value);if(!base)throw new Error("Cole a URL pública mostrada pelo Colab.");button.disabled=true;setStatus("Testando conexão com o Atlas Forge Engine…","loading");try{const response=await fetch(base+"/",{cache:"no-store"});const result=await response.json().catch(()=>({}));if(!response.ok||result.ok!==true)throw new Error("O endereço não respondeu como Atlas Forge Engine.");state.engineBase=base;localStorage.setItem("atlas_forge_engine_base",base);document.getElementById("atlas-connection").textContent="● CONECTADO";document.getElementById("atlas-connection").dataset.connected="true";setStatus("Atlas Forge Colab conectado. Já pode gerar o modelo completo.","ok");}finally{button.disabled=false;}}
 
-function buildRelief(img,{resolution=52,depth=0.18,threshold=20}={}){
-  const {canvas,data}=imageData(img,resolution); const cols=canvas.width,rows=canvas.height,cell=1/Math.max(cols,rows);
-  const geometry=new THREE.BoxGeometry(cell*.98,cell*.98,1); const material=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.72,metalness:.05});
-  let count=0; for(let i=0;i<data.data.length;i+=4) if(data.data[i+3]>=threshold) count++;
-  const mesh=new THREE.InstancedMesh(geometry,material,count); const dummy=new THREE.Object3D(); const color=new THREE.Color(); let n=0;
-  for(let y=0;y<rows;y++) for(let x=0;x<cols;x++){
-    const i=(y*cols+x)*4,r=data.data[i]/255,g=data.data[i+1]/255,b=data.data[i+2]/255,a=data.data[i+3]; if(a<threshold) continue;
-    const lum=(r+g+b)/3,d=Math.max(.035,depth*(.35+lum*.9));
-    dummy.position.set((x-(cols-1)/2)*cell,((rows-1)/2-y)*cell,d/2); dummy.scale.set(1,1,d); dummy.updateMatrix(); mesh.setMatrixAt(n,dummy.matrix);
-    color.setRGB(r,g,b,THREE.SRGBColorSpace); mesh.setColorAt(n,color); n++;
-  }
-  mesh.instanceMatrix.needsUpdate=true; if(mesh.instanceColor) mesh.instanceColor.needsUpdate=true; mesh.castShadow=true; mesh.receiveShadow=true;
-  const group=new THREE.Group(); group.name="FORGE_IMAGE_3D"; group.userData.forgeHint="image to 3d relief"; group.userData.source="image-to-3d-local"; group.add(mesh);
-  group.scale.setScalar(1.35/Math.max(cols*cell,rows*cell)); group.rotation.x=-.12; return group;
-}
+async function generateLocal(){if(!state.image)throw new Error("Escolha uma imagem primeiro.");setProgress(25);setStatus("Gerando com o motor gráfico local…","loading");await sleep(80);const resolution=Number(document.getElementById("img3d-resolution").value||52),depth=Number(document.getElementById("img3d-depth").value||18)/100;showGroup(buildRelief(state.image,{resolution,depth}));setProgress(100);setStatus("Modelo local pronto.","ok");setTimeout(()=>setProgress(null),800);}
+async function pollColab(jobId){for(let attempt=0;attempt<120;attempt++){await sleep(attempt<8?2500:5000);const response=await fetch(`${state.engineBase}/image-to-3d-status/${encodeURIComponent(jobId)}`,{cache:"no-store"});const result=await response.json().catch(()=>({}));if(!response.ok)throw new Error(result.detail||result.message||"Falha ao consultar o Colab.");const progress=Number(result.progress||Math.min(92,10+attempt*2));setProgress(progress);setStatus(result.message||`Processando no Colab… ${progress}%`,"loading");if(result.modelUrl||["done","success","completed","succeeded"].includes(String(result.status).toLowerCase()))return result;if(["error","failed","cancelled"].includes(String(result.status).toLowerCase()))throw new Error(result.message||"O motor Colab falhou.");}throw new Error("O processamento demorou mais que o esperado.");}
+async function generateColab(){if(!state.file)throw new Error("Escolha uma imagem primeiro.");if(!state.engineBase)throw new Error("Abra o Atlas Forge no Colab, execute as células e conecte a URL pública.");const form=new FormData();form.append("image",state.file);form.append("quality",document.getElementById("img3d-quality").value);form.append("removeBackground",String(document.getElementById("img3d-remove-bg").checked));form.append("prompt",document.getElementById("img3d-prompt").value.trim());setProgress(5);setStatus("Enviando imagem para a GPU do Colab…","loading");const response=await fetch(state.engineBase+"/image-to-3d",{method:"POST",body:form});let result=await response.json().catch(()=>({}));if(!response.ok)throw new Error(result.detail||result.message||`Colab respondeu ${response.status}.`);if(!result.modelUrl&&result.jobId)result=await pollColab(result.jobId);if(!result.modelUrl)throw new Error("O motor não retornou o GLB.");const modelUrl=absoluteUrl(state.engineBase,result.modelUrl);setProgress(96);setStatus("Abrindo o GLB gerado…","loading");const group=await loadExternalModel(modelUrl);group.name="ATLAS_FORGE_COLAB_MODEL";group.userData.sourceModelUrl=modelUrl;showGroup(group);setProgress(100);setStatus("Modelo 3D completo carregado.","ok");setTimeout(()=>setProgress(null),1000);}
 
-function loadExternalModel(url){ const loader=new GLTFLoader(); return new Promise((resolve,reject)=>loader.load(url,gltf=>resolve(gltf.scene),undefined,reject)); }
-function showGroup(group){ removeCurrent(); state.group=group; if(!state.scene) throw new Error("Cena 3D ainda não foi inicializada."); state.scene.add(group); }
-function setStatus(text,kind=""){ const el=document.getElementById("img3d-status"); if(el){el.textContent=text;el.dataset.kind=kind;} }
-function setProgress(value){ const bar=document.getElementById("img3d-progress-bar"); const wrap=document.getElementById("img3d-progress"); if(!bar||!wrap)return; wrap.classList.toggle("hidden",value==null); if(value!=null) bar.style.width=`${Math.max(3,Math.min(100,value))}%`; }
-
-async function generateLocal(){
-  if(!state.image) throw new Error("Escolha uma imagem primeiro.");
-  const resolution=Number(document.getElementById("img3d-resolution").value||52),depth=Number(document.getElementById("img3d-depth").value||18)/100;
-  setProgress(25); setStatus("Gerando relevo 3D no navegador…","loading"); await sleep(60); showGroup(buildRelief(state.image,{resolution,depth})); setProgress(100);
-  setStatus("Modelo local gerado. Você já pode girar e exportar.","ok"); setTimeout(()=>setProgress(null),900);
-}
-
-async function pollJob(jobId){
-  for(let attempt=0;attempt<90;attempt++){
-    await sleep(attempt<10?2500:5000);
-    const response=await fetch(`/api/image-to-3d-status?jobId=${encodeURIComponent(jobId)}`,{cache:"no-store"});
-    const result=await response.json().catch(()=>({}));
-    if(!response.ok) throw new Error(result.message||`Falha ao consultar o job (${response.status}).`);
-    const progress=Number.isFinite(Number(result.progress))?Number(result.progress):Math.min(92,12+attempt*2);
-    setProgress(progress); setStatus(`Processando modelo 3D… ${Math.round(progress)}%`,`loading`);
-    if(result.modelUrl||["completed","succeeded","success","done"].includes(String(result.status).toLowerCase())) return result;
-    if(["failed","error","cancelled"].includes(String(result.status).toLowerCase())) throw new Error(result.provider?.message||"O processamento 3D falhou.");
-  }
-  throw new Error("O processamento demorou mais que o esperado.");
-}
-
-async function generateExternal(){
-  if(!state.file) throw new Error("Escolha uma imagem primeiro.");
-  setProgress(5); setStatus("Enviando imagem para o motor 3D…","loading");
-  const imageBase64=await fileToDataUrl(state.file);
-  const prompt=document.getElementById("img3d-prompt").value.trim();
-  const response=await fetch("/api/image-to-3d",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({imageBase64,fileName:state.file.name,prompt,options:{quality:document.getElementById("img3d-quality").value,removeBackground:document.getElementById("img3d-remove-bg").checked}})});
-  let result=await response.json().catch(()=>({}));
-  if(!response.ok) throw new Error(result.message||`Backend respondeu ${response.status}.`);
-  if(!result.modelUrl&&result.jobId) result=await pollJob(result.jobId);
-  if(!result.modelUrl) throw new Error("O motor 3D não retornou uma URL de GLB.");
-  setProgress(96); setStatus("Baixando e abrindo o GLB gerado…","loading");
-  const group=await loadExternalModel(result.modelUrl); group.name="FORGE_EXTERNAL_IMAGE_3D"; group.userData.forgeHint="external image to 3d"; group.userData.sourceModelUrl=result.modelUrl;
-  showGroup(group); setProgress(100); setStatus("Modelo 3D completo carregado com sucesso.","ok"); setTimeout(()=>setProgress(null),1000);
-}
-
-function install(){
-  const host=document.getElementById("left-panel"); if(!host||document.getElementById("image-to-3d-panel")) return;
-  const panel=document.createElement("section"); panel.id="image-to-3d-panel"; panel.className="panel-section image3d-panel";
-  panel.innerHTML=`
-    <label class="section-label">📷 IMAGEM → 3D <span class="beta">FASE 2</span></label>
-    <div class="img3d-drop" id="img3d-drop"><input id="img3d-file" type="file" accept="image/png,image/jpeg,image/webp" hidden><img id="img3d-preview" alt="Prévia"><span>Toque para escolher PNG, JPG ou WEBP</span></div>
-    <div class="panel-grid"><div class="field"><label>MODO</label><select id="img3d-mode"><option value="external">3D completo — servidor</option><option value="local">Relevo 3D local</option></select></div><div class="field"><label>QUALIDADE</label><select id="img3d-quality"><option value="draft">Rápida</option><option value="standard" selected>Padrão</option><option value="high">Alta</option></select></div></div>
-    <div id="img3d-external-options"><div class="field"><label>INSTRUÇÃO OPCIONAL</label><input id="img3d-prompt" placeholder="ex: personagem low poly, vista completa"></div><label class="img3d-check"><input id="img3d-remove-bg" type="checkbox" checked> Remover fundo antes de gerar</label></div>
-    <div id="img3d-local-options" class="hidden"><div class="panel-grid"><div class="field"><label>DETALHE LOCAL</label><select id="img3d-resolution"><option value="36">Rápido</option><option value="52" selected>Equilibrado</option><option value="72">Detalhado</option></select></div><div class="field"><label>PROFUNDIDADE <span id="img3d-depth-value">18</span>%</label><input id="img3d-depth" type="range" min="4" max="45" value="18"></div></div></div>
-    <div id="img3d-progress" class="img3d-progress hidden"><div id="img3d-progress-bar"></div></div>
-    <button id="img3d-generate" class="secondary-btn">✨ GERAR 3D DA IMAGEM</button>
-    <button id="img3d-export" class="export-btn primary" disabled>⬇️ EXPORTAR GLB DA IMAGEM</button>
-    <p id="img3d-status" class="hint">Modo servidor gera um modelo 3D completo quando o motor estiver conectado.</p>`;
-  host.insertBefore(panel,host.querySelector(".panel-section.small"));
-  const style=document.createElement("style"); style.textContent=`.image3d-panel{border:1px solid rgba(170,255,0,.25);background:linear-gradient(180deg,rgba(170,255,0,.04),transparent)}.image3d-panel .beta{font-size:9px;color:#aaff00;border:1px solid rgba(170,255,0,.35);padding:2px 5px;border-radius:10px}.img3d-drop{min-height:112px;border:1px dashed #405044;border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden;cursor:pointer;background:#0d120e;margin:8px 0 10px}.img3d-drop img{display:none;width:100%;height:150px;object-fit:contain;background:repeating-conic-gradient(#101510 0 25%,#151b15 0 50%) 50%/18px 18px}.img3d-drop.has-image img{display:block}.img3d-drop.has-image span{display:none}.img3d-drop span{font-size:11px;color:#8d9b90;text-align:center;padding:18px}.image3d-panel .hidden{display:none!important}.image3d-panel button{width:100%;margin-top:7px}.img3d-check{font-size:11px;color:#a8b2aa;display:flex;gap:7px;align-items:center;margin:6px 0}.img3d-progress{height:7px;background:#172018;border-radius:8px;overflow:hidden;margin:10px 0}.img3d-progress div{height:100%;width:3%;background:#aaff00;transition:width .35s ease}#img3d-status[data-kind="ok"]{color:#aaff00}#img3d-status[data-kind="loading"]{color:#ffd166}#img3d-status[data-kind="error"]{color:#ff7b7b}`; document.head.appendChild(style);
-
-  const fileInput=document.getElementById("img3d-file"),drop=document.getElementById("img3d-drop"),preview=document.getElementById("img3d-preview"),generate=document.getElementById("img3d-generate"),exportBtn=document.getElementById("img3d-export"),mode=document.getElementById("img3d-mode");
-  drop.addEventListener("click",()=>fileInput.click());
-  fileInput.addEventListener("change",async()=>{ const file=fileInput.files?.[0]; if(!file)return; if(file.size>8*1024*1024){setStatus("Imagem acima de 8 MB.","error");return;} state.file=file; state.image=await loadImage(file); state.fileName=file.name.replace(/\.[^.]+$/,"_").replace(/[^a-z0-9_-]+/gi,"_")||"image_asset"; preview.src=state.image.src; drop.classList.add("has-image"); exportBtn.disabled=true; setStatus(`Imagem pronta: ${file.name}`); });
-  mode.addEventListener("change",()=>{ const local=mode.value==="local"; document.getElementById("img3d-local-options").classList.toggle("hidden",!local); document.getElementById("img3d-external-options").classList.toggle("hidden",local); });
-  document.getElementById("img3d-depth").addEventListener("input",e=>document.getElementById("img3d-depth-value").textContent=e.target.value);
-  generate.addEventListener("click",async()=>{ generate.disabled=true; exportBtn.disabled=true; try{ if(mode.value==="external") await generateExternal(); else await generateLocal(); exportBtn.disabled=!state.group; }catch(error){console.error(error);setProgress(null);setStatus(error.message||"Falha ao gerar o modelo.","error");}finally{generate.disabled=false;} });
-  exportBtn.addEventListener("click",async()=>{ if(!state.group)return; setStatus("Preparando GLB…","loading"); const result=await exportGLB(state.group,`${state.fileName}_image3d`); setStatus(`GLB exportado (${result.sizeKB} kb).`,"ok"); });
-}
-
-if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",install); else install();
+function install(){const host=document.getElementById("left-panel");if(!host||document.getElementById("image-to-3d-panel"))return;const panel=document.createElement("section");panel.id="image-to-3d-panel";panel.className="panel-section image3d-panel";panel.innerHTML=`
+<label class="section-label">📷 IMAGEM → 3D <span class="beta">ATLAS FORGE</span></label>
+<div class="engine-choice">
+  <button class="engine-card active" data-engine="local"><b>🧊 MOTOR GRÁFICO</b><span>Rápido, local e sem Colab</span></button>
+  <button class="engine-card" data-engine="colab"><b>⚡ ATLAS FORGE COLAB</b><span>TripoSR com GPU e modelo completo</span></button>
+</div>
+<input id="img3d-mode" type="hidden" value="local">
+<div id="colab-workflow" class="colab-workflow hidden">
+  <a id="open-colab" class="colab-open" href="${COLAB_URL}" target="_blank" rel="noopener">1. ABRIR ATLAS FORGE NO COLAB</a>
+  <div class="colab-step">2. Conecte a T4 GPU e execute as células, uma por uma.</div>
+  <div class="field"><label>3. COLE A URL GERADA PELO COLAB</label><div class="connect-row"><input id="atlas-engine-url" placeholder="https://....ngrok-free.app"><button id="atlas-connect">CONECTAR</button></div></div>
+  <div id="atlas-connection" class="connection-state">○ DESCONECTADO</div>
+</div>
+<div class="img3d-drop" id="img3d-drop"><input id="img3d-file" type="file" accept="image/png,image/jpeg,image/webp" hidden><img id="img3d-preview" alt="Prévia"><span>Toque para escolher PNG, JPG ou WEBP</span></div>
+<div id="colab-options" class="hidden"><div class="panel-grid"><div class="field"><label>QUALIDADE</label><select id="img3d-quality"><option value="fast">Rápida</option><option value="balanced" selected>Padrão</option><option value="high">Alta</option></select></div><div class="field"><label>INSTRUÇÃO</label><input id="img3d-prompt" placeholder="ex: personagem low poly"></div></div><label class="img3d-check"><input id="img3d-remove-bg" type="checkbox" checked> Remover fundo</label></div>
+<div id="local-options"><div class="panel-grid"><div class="field"><label>DETALHE</label><select id="img3d-resolution"><option value="36">Rápido</option><option value="52" selected>Equilibrado</option><option value="72">Detalhado</option></select></div><div class="field"><label>PROFUNDIDADE <span id="img3d-depth-value">18</span>%</label><input id="img3d-depth" type="range" min="4" max="45" value="18"></div></div></div>
+<div id="img3d-progress" class="img3d-progress hidden"><div id="img3d-progress-bar"></div></div>
+<button id="img3d-generate" class="secondary-btn">✨ GERAR 3D DA IMAGEM</button>
+<button id="img3d-export" class="export-btn primary" disabled>⬇️ EXPORTAR GLB</button>
+<p id="img3d-status" class="hint">Escolha o motor e envie uma imagem.</p>`;host.insertBefore(panel,host.querySelector(".panel-section.small"));
+const style=document.createElement("style");style.textContent=`.image3d-panel{border:1px solid rgba(170,255,0,.25)}.beta{font-size:9px;color:#aaff00}.engine-choice{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:9px 0}.engine-card{padding:10px!important;border:1px solid #334238!important;background:#111712!important;text-align:left!important;border-radius:9px!important}.engine-card.active{border-color:#aaff00!important;box-shadow:0 0 0 1px rgba(170,255,0,.2)}.engine-card b,.engine-card span{display:block}.engine-card b{font-size:10px}.engine-card span{font-size:9px;color:#849088;margin-top:4px}.colab-workflow{background:#0d120e;border:1px solid #2f4033;border-radius:9px;padding:9px;margin-bottom:9px}.colab-open{display:block;text-align:center;background:#202b22;color:#aaff00;border:1px solid #405344;padding:9px;border-radius:7px;text-decoration:none;font-size:10px;font-weight:700}.colab-step{font-size:10px;color:#9ca79f;padding:9px 2px}.connect-row{display:flex;gap:6px}.connect-row input{min-width:0}.connect-row button{width:auto!important;margin:0!important}.connection-state{font-size:9px;color:#879188;margin-top:7px}.connection-state[data-connected=true]{color:#aaff00}.img3d-drop{min-height:105px;border:1px dashed #405044;border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden;cursor:pointer;background:#0d120e;margin:8px 0}.img3d-drop img{display:none;width:100%;height:140px;object-fit:contain}.img3d-drop.has-image img{display:block}.img3d-drop.has-image span{display:none}.image3d-panel .hidden{display:none!important}.image3d-panel>button{width:100%;margin-top:7px}.img3d-check{font-size:11px}.img3d-progress{height:7px;background:#172018;border-radius:8px;overflow:hidden;margin:10px 0}.img3d-progress div{height:100%;width:3%;background:#aaff00;transition:width .35s}#img3d-status[data-kind=ok]{color:#aaff00}#img3d-status[data-kind=loading]{color:#ffd166}#img3d-status[data-kind=error]{color:#ff7b7b}`;document.head.appendChild(style);
+const mode=document.getElementById("img3d-mode"),cards=[...document.querySelectorAll(".engine-card")];cards.forEach(card=>card.addEventListener("click",()=>{cards.forEach(c=>c.classList.remove("active"));card.classList.add("active");mode.value=card.dataset.engine;const colab=mode.value==="colab";document.getElementById("colab-workflow").classList.toggle("hidden",!colab);document.getElementById("colab-options").classList.toggle("hidden",!colab);document.getElementById("local-options").classList.toggle("hidden",colab);setStatus(colab?"Abra o Colab, rode as células e conecte a URL.":"Motor gráfico local selecionado.");}));
+const engineInput=document.getElementById("atlas-engine-url");engineInput.value=state.engineBase;if(state.engineBase){document.getElementById("atlas-connection").textContent="● URL SALVA";}document.getElementById("atlas-connect").addEventListener("click",()=>connectEngine().catch(e=>setStatus(e.message,"error")));
+const fileInput=document.getElementById("img3d-file"),drop=document.getElementById("img3d-drop"),preview=document.getElementById("img3d-preview"),generate=document.getElementById("img3d-generate"),exportBtn=document.getElementById("img3d-export");drop.addEventListener("click",()=>fileInput.click());fileInput.addEventListener("change",async()=>{const file=fileInput.files?.[0];if(!file)return;state.file=file;state.image=await loadImage(file);state.fileName=file.name.replace(/\.[^.]+$/,"").replace(/[^a-z0-9_-]+/gi,"_")||"image_asset";preview.src=state.image.src;drop.classList.add("has-image");setStatus(`Imagem pronta: ${file.name}`);});document.getElementById("img3d-depth").addEventListener("input",e=>document.getElementById("img3d-depth-value").textContent=e.target.value);generate.addEventListener("click",async()=>{generate.disabled=true;exportBtn.disabled=true;try{if(mode.value==="colab")await generateColab();else await generateLocal();exportBtn.disabled=!state.group;}catch(e){console.error(e);setProgress(null);setStatus(e.message||"Falha ao gerar.","error");}finally{generate.disabled=false;}});exportBtn.addEventListener("click",async()=>{if(!state.group)return;const result=await exportGLB(state.group,`${state.fileName}_image3d`);setStatus(`GLB exportado (${result.sizeKB} kb).`,"ok");});}
+if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",install);else install();
