@@ -1,9 +1,10 @@
-const CACHE_NAME = "forge3d-cache-v12";
+const CACHE_NAME = "forge3d-cache-v13";
 const ASSETS = [
   "./",
   "./index.html",
   "./manifest.json",
   "./css/style.css",
+  "./js/forge/imported-model-normalizer.js",
   "./js/forge/animation-bootstrap.js",
   "./js/forge/animationSystem.js",
   "./js/forge/rigging.js",
