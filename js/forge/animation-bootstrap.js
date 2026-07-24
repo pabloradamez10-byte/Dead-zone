@@ -102,8 +102,44 @@ function prepareGroup(group){
   });
 }
 
+function isImageAsset(group){
+  return [
+    "FORGE_IMAGE_3D",
+    "ATLAS_FORGE_COLAB_MODEL",
+    "FORGE_SAVED_IMAGE_ASSET"
+  ].includes(group?.name);
+}
+
+function normalizeImageAsset(group){
+  group.updateMatrixWorld(true);
+  const box = new THREE.Box3().setFromObject(group);
+  if(box.isEmpty()) return;
+
+  const size = box.getSize(new THREE.Vector3());
+  const center = box.getCenter(new THREE.Vector3());
+  const maxDim = Math.max(size.x, size.y, size.z, 0.001);
+  const factor = 1.55 / maxDim;
+
+  group.scale.multiplyScalar(factor);
+  group.position.x += -center.x * factor;
+  group.position.y += -box.min.y * factor;
+  group.position.z += -center.z * factor;
+  group.updateMatrixWorld(true);
+}
+
 const originalSceneAdd = THREE.Scene.prototype.add;
 THREE.Scene.prototype.add = function(...objects){
+  for(const object of objects){
+    if(isImageAsset(object)){
+      if(state.activeGroup && state.activeGroup !== object && state.activeGroup.parent === this){
+        stopCurrent();
+        this.remove(state.activeGroup);
+        state.activeGroup = null;
+      }
+      normalizeImageAsset(object);
+    }
+  }
+
   const result = originalSceneAdd.apply(this, objects);
   for(const object of objects){
     if(object?.isGroup && object.children?.length){
